@@ -113,7 +113,7 @@ export async function handleMisubRequest(context) {
                 if (Array.isArray(profileSubIds)) {
                     profileSubIds.forEach(id => {
                         const sub = misubMap.get(id);
-                        if (sub && sub.enabled && sub.url.startsWith('http')) {
+                        if (sub && sub.enabled && typeof sub.url === 'string' && sub.url.startsWith('http')) {
                             targetMisubs.push(sub);
                         }
                     });
@@ -124,7 +124,7 @@ export async function handleMisubRequest(context) {
                 if (Array.isArray(profileNodeIds)) {
                     profileNodeIds.forEach(id => {
                         const node = misubMap.get(id);
-                        if (node && node.enabled && !node.url.startsWith('http')) {
+                        if (node && node.enabled && typeof node.url === 'string' && !node.url.startsWith('http')) {
                             targetMisubs.push(node);
                         }
                     });
@@ -355,7 +355,7 @@ export async function handleMisubRequest(context) {
             isDebugToken
         );
         const sourceNames = targetMisubs
-            .filter(s => s.url.startsWith('http'))
+            .filter(s => typeof s?.url === 'string' && s.url.startsWith('http'))
             .map(s => s.name || s.url);
         await setCache(storageAdapter, cacheKey, freshNodes, sourceNames);
         return freshNodes;
@@ -557,8 +557,11 @@ export async function handleMisubRequest(context) {
         console.error('[MiSub] Subconverter call failed:', e);
     }
 
-    // 净化错误信息（移除换行符），防止 header 异常
-    const safeErrorMessage = (lastError ? lastError.message : 'Unknown subconverter error').replace(/[\r\n]+/g, ' ').trim();
+    // 净化错误信息（移除换行符和双引号），防止 header 异常和 YAML 语法错误
+    const safeErrorMessage = (lastError ? lastError.message : 'Unknown subconverter error')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/"/g, "'")
+        .trim();
     console.error(`[MiSub Final Error] ${safeErrorMessage}`);
 
     // [Deferred Logging] Log Error for Subconverter Failures (Timeout/Error)
@@ -646,5 +649,5 @@ rules:
         return new Response(fallbackContent, { headers: fallbackHeaders, status: 200 });
     }
 
-    return new Response(`Error connecting to subconverter: ${errorMessage}`, { status: 502 });
+    return new Response(`Error connecting to subconverter: ${safeErrorMessage}`, { status: 502 });
 }
